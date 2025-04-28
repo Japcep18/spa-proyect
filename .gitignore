@@ -1,0 +1,10 @@
+bin/
+obj/
+*.suo
+*.user
+.vs/
+appsettings.json
+*.mdf
+*.ldf
+
+Temp.txt

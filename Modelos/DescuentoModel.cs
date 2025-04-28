@@ -1,0 +1,259 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel;
+using Modelos.Tipos;
+using Modelos.Servicios;
+using Microsoft.Data.SqlClient;
+using System.Data;
+using Modelos.Estandard;
+using MSSQLRepositorio;
+
+namespace Modelos
+{
+    public class Descuento : DBObject
+    {
+        [Required]
+        [DisplayName("Código")]
+        public int cod_desc { get; set; }
+        [Required]
+        [DisplayName("Descripcion")]
+        [StringLength(250, MinimumLength = 3)]
+        public string descripcion_desc { get; set; }
+        [Required]
+        [DisplayName("Porcentaje")]
+        [Range(0, double.MaxValue)]
+        public decimal porcentaje_desc { get; set; }
+
+        [Required]
+        [DisplayName("Fecha de inicio")]
+        public DateTime fechainicio_desc { get; set; }
+
+        [DisplayName("Fecha final")]
+        public DateTime fechafin_desc { get; set; }
+        [Required]
+        [DisplayName("Afecta ITBIS")]
+        public bool afectaitbis_desc { get; set; }
+        public bool activo_des { get; set; }
+
+        public override string ToString()
+        {
+            return $"{cod_desc} - {descripcion_desc}";
+        }
+    }
+
+    public class DescuentoModel : BaseModel<Descuento>, IModeloSimple<Descuento>
+    {
+        public string? Codigo
+        {
+            get => Model?.cod_desc.ToString();
+            set
+            {
+                if(value == null)
+                {
+                    this.Model = null;
+                    this.Descripcion = null;
+                }
+                else
+                {
+                    if (value != Model?.cod_desc.ToString())
+                    {
+                        var obj = this.Obtener(value);
+                        if (obj == null)
+                        {
+                            this.Model = null;
+                            this.Descripcion = null;
+                        }
+                        else
+                        {
+                            obj.state = EntityState.Modificado;
+                            this.Model = obj;
+                            this.Descripcion = obj.ToString();
+                        }
+                    }
+                }
+                this.CambioModelo?.Invoke(this, value);
+            }
+        }
+        public string? Descripcion
+        {
+            get
+            {
+                if (this.Model != null)
+                    return this.Model.descripcion_desc;
+                return null;
+            }
+            set
+            {
+                if (value == null) return;
+                if (this.Model != null)
+                    this.Model.descripcion_desc = value;
+            }
+        }
+        public override string TableName => "Descuento";
+
+        public event EventHandler<string?>? CambioModelo;
+
+        public DescuentoModel()
+        {
+            Tipos.DatosConexion connData = new ConfiguracionModel().Model!.Conexion;
+            this.conexion = new(connData);
+        }
+
+
+        public override EntityMessage<IEnumerable<Descuento>> CargarDatos()
+        {
+            string query = $"SELECT * FROM {TableName};";
+            var msg = conexion.ObtenerDatos(query);
+            if (msg.State)
+            {
+                IEnumerable<Descuento> rawDataList = DataManager.DataTableToList<Descuento>(msg.Entity);
+                this.DataList = rawDataList.Select(des =>
+                {
+
+                    return new Descuento()
+                    {
+                        cod_desc = des.cod_desc,
+                        descripcion_desc = des.descripcion_desc,
+                        porcentaje_desc = des.porcentaje_desc,
+                        fechainicio_desc = des.fechainicio_desc,
+                        fechafin_desc = des.fechafin_desc,
+                        afectaitbis_desc = des.afectaitbis_desc,
+                        activo_des = des.activo_des,
+                        state = EntityState.Modificado,
+                    };
+                });
+            }
+
+            return new(msg.State, msg.Msg, this.DataList);
+        }
+
+        public override EntityMessage<Descuento> Guardar()
+        {
+           if(this.Model == null)
+           {
+                return new(false, Mensajes.Msj_Error_InstanciaNula, null);
+           }
+
+            switch (this.Model.state)
+            {
+                case EntityState.Agregado:
+                    var insertMsg = this.conexion.ExecuteInstructions(
+                         (conn, tran) => {
+                             string query = $"INSERT INTO {this.TableName} (cod_desc, descripcion_desc, porcentaje_desc, fechainicio_desc, fechafin_desc, afectaitbis_desc, activo_des) " +
+                                 $"VALUES (@cod_desc, @descripcion_desc, @porcentaje_desc, @fechainicio_desc, @fechafin_desc, @afectaitbis_desc, @activo_des);";
+
+                             try
+                             {
+                                 int secuencia = SecuenciaManager.ObtenerSiguiente(this.TableName, conn, tran, true);
+                                 if (secuencia == -1)
+                                 {
+                                     return new(false, Mensajes.Msj_Error_GenerarSecuencia, this.Model);
+                                 }
+
+                                 SqlParameter[] paramsList = [
+                                    new("cod_desc", secuencia),
+                                    new("descripcion_desc", this.Model.descripcion_desc.ToUpper()),
+                                    new("porcentaje_desc", this.Model.porcentaje_desc),
+                                    new("fechainicio_desc", this.Model.fechainicio_desc),
+                                    new("fechafin_desc", this.Model.fechafin_desc),
+                                    new("afectaitbis_desc", this.Model.afectaitbis_desc),
+                                    new("activo_des", this.Model.activo_des),
+                                 ];
+
+                                 int affected = ConexionSQL.ExecuteNonQuery(query, conn, paramsList, tran);
+                                 var valor = new MSSQLRepositorio.Tipos.Message<object>(true, Mensajes.Msj_Aviso_InstruccionEjecutada, this.Model);
+                                 if (valor.State)
+                                 {
+                                     tran.Commit();
+                                 }
+                                 return valor;
+                             }
+                             catch (Exception ex)
+                             {
+                                 return new(false, ex.Message, this.Model);
+                             }
+                         });
+                    return new(insertMsg.State, insertMsg.Msg, this.Model);
+                case EntityState.Modificado:
+
+                    var updateMsg = this.conexion.ExecuteInstructions(
+                            (SqlConnection conn, SqlTransaction tran) =>
+                            {
+                                string query = $"UPDATE {this.TableName} SET descripcion_desc = @descripcion_desc, porcentaje_desc = @porcentaje_desc, fechainicio_desc = @fechainicio_desc, fechafin_desc = @fechafin_desc, afectaitbis_desc = @afectaitbis_desc, activo_des = @activo_des " +
+                                    $" WHERE cod_desc = @cod_desc;";
+
+                                SqlParameter[] paramsList = [
+                                    new("cod_desc", this.Model.cod_desc),
+                                    new("descripcion_desc", this.Model.descripcion_desc.ToUpper()),
+                                    new("porcentaje_desc", this.Model.porcentaje_desc),
+                                    new("fechainicio_desc", this.Model.fechainicio_desc),
+                                    new("fechafin_desc", this.Model.fechafin_desc),
+                                    new("afectaitbis_desc", this.Model.afectaitbis_desc),
+                                    new("activo_des", this.Model.activo_des),
+                                ];
+
+                                try
+                                {
+                                    int affected = ConexionSQL.ExecuteNonQuery(query, conn, paramsList, tran);
+                                    var valor = new MSSQLRepositorio.Tipos.Message<object>(true, "Instrucción Ejecutada", this.Model);
+                                    if (valor.State)
+                                    {
+                                        tran.Commit();
+                                    }
+                                    return valor;
+                                }
+                                catch (Exception ex)
+                                {
+                                    return new(false, ex.Message, this.Model);
+                                }
+                            }
+                        );
+                    return new(updateMsg.State, updateMsg.Msg, this.Model);
+                case EntityState.Eliminado:
+                    break;
+                default:
+                    break;
+            }
+            return null; 
+
+        }
+
+        public Descuento? Obtener(string codigo)
+        {
+            string query = $"SELECT * FROM {TableName} WHERE cod_desc = @cod_desc;";
+            SqlParameter[] paramsList =
+            [
+                new SqlParameter("cod_desc", codigo),
+            ];
+
+            var msg = conexion.ObtenerDatos(query, paramsList);
+            if (msg.State)
+            {
+                DataTable? dataTable = msg.Entity;
+                if (dataTable != null)
+                {
+                    if (dataTable.Rows.Count > 0)
+                    {
+                        Descuento? des = DataManager.DataRowToObject<Descuento>(dataTable.Rows[0]);
+                        return des;
+                    }
+                }
+            }
+            return null;
+        }
+
+        public IEnumerable<Descuento> ObtenerTodos()
+        {
+           return this.DataList;  
+        }
+        public override void CargarDatos(Descuento? entity)
+        {
+            if (entity != null)
+            {
+                entity.state = EntityState.Modificado;
+            }
+            base.CargarDatos(entity);
+            this.Codigo = entity?.cod_desc.ToString();
+        }
+
+    }
+}
