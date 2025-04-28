@@ -18,8 +18,8 @@ Sistema diseñado para gestionar un centro de masajes y dermatología, desarroll
 - Administración de servicios y disponibilidad.
 
 ## Contribuciones
-- **[Tu nombre]**: Desarrollo del frontend y soporte en backend (35%).
-- **[Nombre del compañero]**: Liderazgo técnico y desarrollo principal (65%).
+- **Japcep18**: Desarrollo del frontend y soporte en backend (45%).
+- **UNPANBLANCO**: Liderazgo técnico y desarrollo principal (55%).
 
 ## Estado
 Proyecto funcional, abierto a mejoras. ¡Feedback bienvenido!
