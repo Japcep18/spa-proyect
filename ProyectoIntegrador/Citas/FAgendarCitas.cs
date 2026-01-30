@@ -576,6 +576,7 @@ namespace ProyectoIntegrador.Citas
 
             // LIMPIAR CODIGO
             this.empleadoModel.Codigo = null;
+
         }
 
         private void dataGridViewEmpleado_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
